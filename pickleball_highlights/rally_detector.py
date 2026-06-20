@@ -273,6 +273,8 @@ class RallyDetector:
             logger.debug("Audio corroboration unavailable at %.2fs: %s", timestamp, exc)
             return True
 
+        # Be permissive when audio extraction/analysis produced no usable
+        # windows: treat audio as unavailable rather than blocking visual shots.
         if not frames:
             return True
 

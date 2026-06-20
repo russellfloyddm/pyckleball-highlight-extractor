@@ -206,11 +206,12 @@ class BallTracker:
 
         # From all contours, keep only those that are compact (ball-like).
         # A ball is small and near-round; player bodies are large and irregular.
-        # We reject tiny noise blobs (<40 px²) and elongated streaks (aspect
-        # ratio >2.0), then pick the *smallest* surviving contour — which is
-        # much more likely to be the ball than the largest (player body).
-        # 40 px² keeps small/blurred pickleball motion while filtering single-
-        # block compression artifacts that commonly appear in broadcast video.
+        # We reject tiny noise blobs (<MIN_BALL_CONTOUR_AREA px²) and elongated
+        # streaks (aspect ratio >MAX_BALL_ASPECT_RATIO), then pick the
+        # *smallest* surviving contour — which is much more likely to be the
+        # ball than the largest (player body). This keeps small/blurred
+        # pickleball motion while filtering single-block compression artifacts
+        # that commonly appear in broadcast video.
         ball_candidates = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
