@@ -14,7 +14,7 @@ scoring:
 
 detection:
   yolo_model: yolov8n.pt       # yolov8n.pt (fast) / yolov8s.pt / yolov8m.pt
-  yolo_confidence: 0.20
+  yolo_confidence: 0.2
   yolo_iou: 0.5
   tracker: bytetrack
   ball_class_id: 32            # COCO sports-ball class
@@ -45,7 +45,7 @@ rally:
     30: 0.35
 
 highlight:
-  score_threshold: 0.40
+  score_threshold: 0.4
   merge_gap: 10.0              # merge highlights within this many seconds
   clip_before: 5.0             # seconds of padding before highlight
   clip_after: 5.0              # seconds of padding after highlight
