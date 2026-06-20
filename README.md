@@ -217,6 +217,10 @@ pickleball_highlights/
     └── __init__.py       # Model path resolution
 ```
 
+## Additional Documentation
+
+- [How the current system works](docs/how-it-works.md)
+
 ## Running Tests
 
 ```bash
