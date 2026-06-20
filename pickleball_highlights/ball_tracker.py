@@ -109,7 +109,11 @@ class BallTracker:
         best = self._best_detection(results, frame_idx, timestamp)
         if best is not None:
             self._state.add(best)
-        return best
+            return best
+
+        # If YOLO is loaded but misses the ball in this frame, fall back to
+        # motion-based detection so rally detection can continue.
+        return self._optical_flow_fallback(frame_idx, timestamp, frame)
 
     def get_state(self) -> BallTrackState:
         """Return the current accumulated tracking state."""
@@ -205,7 +209,7 @@ class BallTracker:
         ball_candidates = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area < 100:
+            if area < 40:
                 continue
             x, y, w, h = cv2.boundingRect(cnt)
             min_side = min(w, h)

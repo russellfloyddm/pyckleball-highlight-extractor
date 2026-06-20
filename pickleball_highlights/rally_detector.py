@@ -191,10 +191,12 @@ class RallyDetector:
                 if len(self._ball_speeds) >= 3:
                     prev_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
                     audio_ok = self._audio_supports_shot(timestamp)
-                    if (
-                        peak_speed > prev_speed * 1.5
-                        and peak_speed > 50
-                        and audio_ok
+                    min_peak_speed = max(self.config.min_ball_speed * 2.0, 20.0)
+                    visually_strong_peak = (
+                        peak_speed > prev_speed * 1.35 and peak_speed > min_peak_speed
+                    )
+                    if visually_strong_peak and (
+                        audio_ok or peak_speed > prev_speed * 2.2
                     ):
                         self._active_rally_shots += 1
                         self._shot_times.append(timestamp)
@@ -262,10 +264,13 @@ class RallyDetector:
             logger.debug("Audio corroboration unavailable at %.2fs: %s", timestamp, exc)
             return True
 
+        if not frames:
+            return True
+
         for frame in frames:
             if frame.start_time <= timestamp < frame.end_time:
                 return bool(frame.is_spike)
-        return False
+        return True
 
     def _end_rally(self, timestamp: float) -> Optional[Rally]:
         start = self._active_rally_start

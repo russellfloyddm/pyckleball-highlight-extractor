@@ -113,6 +113,27 @@ class TestBallTrackerFallback:
         assert tracker._prev_frame_gray is None
         assert tracker._state.detections == []
 
+    def test_yolo_miss_uses_optical_flow_fallback(self):
+        class EmptyResult:
+            boxes = []
+
+        class FakeModel:
+            def predict(self, *args, **kwargs):
+                return [EmptyResult()]
+
+        tracker = self._make_tracker()
+        tracker._model = FakeModel()
+
+        frame1 = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame2 = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame2[200:250, 300:350] = 255
+
+        first = tracker.process_frame(0, 0.0, frame1)
+        second = tracker.process_frame(1, 0.033, frame2)
+        assert first is None
+        assert second is not None
+        assert second.frame_idx == 1
+
 
 class TestBallTrackerDeviceResolution:
     def test_cpu_device(self):
