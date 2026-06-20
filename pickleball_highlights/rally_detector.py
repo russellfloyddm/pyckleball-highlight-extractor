@@ -189,13 +189,13 @@ class RallyDetector:
 
                 # Shot detection: significant speed peak (proxy for paddle contact)
                 if len(self._ball_speeds) >= 3:
-                    prev, curr, _ = (
-                        self._ball_speeds[-3],
-                        self._ball_speeds[-2],
-                        self._ball_speeds[-1],
-                    )
+                    baseline_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
                     audio_ok = self._audio_supports_shot(timestamp)
-                    if curr > prev * 1.5 and curr > 50 and audio_ok:
+                    if (
+                        peak_speed > baseline_speed * 1.5
+                        and peak_speed > 50
+                        and audio_ok
+                    ):
                         self._active_rally_shots += 1
                         self._shot_times.append(timestamp)
 
@@ -247,8 +247,10 @@ class RallyDetector:
             return False
 
         arr = np.array(recent_points, dtype=np.float32)
-        combined_std = float(np.sqrt(np.var(arr[:, 0]) + np.var(arr[:, 1])))
-        return combined_std <= self.config.service_anchor_position_std
+        center = np.mean(arr, axis=0)
+        radial_distances = np.linalg.norm(arr - center, axis=1)
+        radial_std = float(np.std(radial_distances))
+        return radial_std <= self.config.service_anchor_position_std
 
     def _audio_supports_shot(self, timestamp: float) -> bool:
         if self._audio_analyzer is None:
@@ -256,7 +258,8 @@ class RallyDetector:
 
         try:
             frames = self._audio_analyzer.get_frames()
-        except Exception:
+        except Exception as exc:
+            logger.debug("Audio corroboration unavailable at %.2fs: %s", timestamp, exc)
             return True
 
         for frame in frames:

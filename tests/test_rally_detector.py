@@ -17,10 +17,10 @@ class DummyAudioFrame:
 
 
 class DummyAudioAnalyzer:
-    def __init__(self, frames):
+    def __init__(self, frames: list[DummyAudioFrame]) -> None:
         self._frames = frames
 
-    def get_frames(self):
+    def get_frames(self) -> list[DummyAudioFrame]:
         return self._frames
 
 

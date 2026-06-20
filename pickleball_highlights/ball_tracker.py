@@ -200,6 +200,7 @@ class BallTracker:
         # Pick the largest contour as a proxy for the ball/most-moving object
         largest = max(contours, key=cv2.contourArea)
         area = cv2.contourArea(largest)
+        # Reject tiny motion blobs (sensor noise/compression artifacts).
         if area < 100:
             return None
 
@@ -207,6 +208,7 @@ class BallTracker:
         min_side = min(w, h)
         if min_side <= 0:
             return None
+        # A ball-like region should be near-round, not highly elongated.
         aspect_ratio = max(w, h) / min_side
         if aspect_ratio > 2.0:
             return None
