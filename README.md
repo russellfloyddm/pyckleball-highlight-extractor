@@ -235,6 +235,20 @@ pytest tests/ -v
 pytest tests/ --cov=pickleball_highlights --cov-report=term-missing
 ```
 
+## Notebook-Based Parameter Tuning
+
+A Jupyter notebook is available at:
+
+`notebooks/highlight_parameter_tuning.ipynb`
+
+Use it to tune scoring and highlight-selection parameters against an expected
+`highlights_metadata.json`:
+
+1. Set `VIDEO_PATH` to your source match video.
+2. Set `EXPECTED_METADATA_PATH` to your expected `highlights_metadata.json`.
+3. Run the notebook cells to evaluate multiple parameter sets.
+4. Save the best-performing output config as `tuned_config.yaml`.
+
 ## Performance Notes
 
 - GPU acceleration is used automatically when available (CUDA / MPS)
