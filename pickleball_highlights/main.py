@@ -213,6 +213,7 @@ def run(
     player_tracker = PlayerTracker(config.detection)
     pose_estimator = PoseEstimator(config.detection.device) if not args.no_pose else None
     rally_detector = RallyDetector(config.rally)
+    rally_detector.set_audio_analyzer(None if args.no_audio else audio)
 
     try:
         # ------------------------------------------------------------------

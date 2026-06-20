@@ -66,6 +66,15 @@ class TestAppConfig:
         cfg = AppConfig()
         assert cfg.highlight.merge_gap == 10.0
 
+    def test_default_rally_filters(self):
+        cfg = AppConfig()
+        assert cfg.rally.min_rally_duration == 3.0
+        assert cfg.rally.min_shots == 3
+        assert cfg.rally.min_detection_streak == 3
+        assert cfg.rally.detection_window == 5
+        assert cfg.rally.min_movement_to_start == 0.05
+        assert cfg.rally.min_ball_speed == 20.0
+
 
 class TestLoadConfig:
     def test_load_nonexistent_returns_defaults(self):
@@ -116,6 +125,13 @@ class TestLoadConfig:
                 "min_rally_duration": 2.0,
                 "max_gap_duration": 3.0,
                 "min_shots": 2,
+                "min_detection_streak": 2,
+                "detection_window": 4,
+                "min_movement_to_start": 0.01,
+                "min_ball_speed": 10.0,
+                "service_anchor_window": 2.0,
+                "service_anchor_position_std": 6.0,
+                "service_anchor_min_speed_spike": 60.0,
                 "long_rally_bonus_shots": {10: 0.1, 20: 0.2, 30: 0.35},
             }
         }
@@ -125,3 +141,7 @@ class TestLoadConfig:
         cfg = load_config(str(config_file))
         assert 10 in cfg.rally.long_rally_bonus_shots
         assert cfg.rally.long_rally_bonus_shots[30] == 0.35
+        assert cfg.rally.min_detection_streak == 2
+        assert cfg.rally.detection_window == 4
+        assert cfg.rally.min_movement_to_start == 0.01
+        assert cfg.rally.min_ball_speed == 10.0

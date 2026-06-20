@@ -92,6 +92,18 @@ class TestBallTrackerFallback:
         assert result is not None
         assert result.frame_idx == 1
         assert result.confidence > 0.0
+        assert result.confidence <= 0.6
+
+    def test_thin_motion_region_is_rejected(self):
+        tracker = self._make_tracker()
+        frame1 = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame2 = np.zeros((480, 640, 3), dtype=np.uint8)
+        # Very elongated motion region should be filtered by aspect ratio.
+        frame2[220:225, 100:260] = 255
+
+        tracker.process_frame(0, 0.0, frame1)
+        result = tracker.process_frame(1, 0.033, frame2)
+        assert result is None
 
     def test_reset_clears_prev_frame(self):
         tracker = self._make_tracker()
