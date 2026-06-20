@@ -13,6 +13,9 @@ from pickleball_highlights.utils import get_logger
 
 logger = get_logger(__name__)
 
+MIN_BALL_CONTOUR_AREA = 40.0
+MAX_BALL_ASPECT_RATIO = 2.0
+
 
 @dataclass
 class BallDetection:
@@ -211,13 +214,13 @@ class BallTracker:
         ball_candidates = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area < 40:
+            if area < MIN_BALL_CONTOUR_AREA:
                 continue
             x, y, w, h = cv2.boundingRect(cnt)
             min_side = min(w, h)
             if min_side <= 0:
                 continue
-            if max(w, h) / min_side > 2.0:
+            if max(w, h) / min_side > MAX_BALL_ASPECT_RATIO:
                 continue
             ball_candidates.append(cnt)
 

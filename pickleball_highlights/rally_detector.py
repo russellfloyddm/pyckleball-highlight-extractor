@@ -194,6 +194,8 @@ class RallyDetector:
                     # Require a minimum absolute speed floor (20 px/s) to
                     # reject jitter/camera wobble even when config thresholds
                     # are tuned low for distant-camera footage.
+                    # Double configured min speed so shot peaks must clearly
+                    # exceed the baseline in-play threshold.
                     min_peak_speed = max(self.config.min_ball_speed * 2.0, 20.0)
                     visually_strong_peak = (
                         # 1.35x captures realistic shot acceleration in noisy
