@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import sys
 import time
@@ -118,6 +119,20 @@ def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
         help="Seconds of padding after each highlight (default: 5).",
     )
     parser.add_argument(
+        "--start-time",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Start processing from this timestamp in the input video.",
+    )
+    parser.add_argument(
+        "--end-time",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Stop processing at this timestamp in the input video.",
+    )
+    parser.add_argument(
         "--no-audio",
         action="store_true",
         help="Skip audio analysis (faster, but audio score will be 0).",
@@ -177,18 +192,37 @@ def run(
     logger.info("Input: %s", args.input)
     logger.info("Output: %s", args.output)
     logger.info("Score threshold: %.2f", config.highlight.score_threshold)
+
+    selected_start_time = getattr(args, "start_time", None)
+    selected_end_time = getattr(args, "end_time", None)
+
+    if selected_start_time is not None and selected_start_time < 0:
+        raise ValueError("--start-time must be >= 0")
+    if selected_end_time is not None and selected_end_time < 0:
+        raise ValueError("--end-time must be >= 0")
+    if selected_start_time is not None and selected_end_time is not None:
+        if selected_end_time <= selected_start_time:
+            raise ValueError("--end-time must be greater than --start-time")
+
     _emit_status(observer, "startup", "Configuration loaded")
 
     # ------------------------------------------------------------------
     # Video loading
     # ------------------------------------------------------------------
     _emit_status(observer, "input", "Loading video metadata")
-    loader = VideoLoader(args.input)
+    loader = VideoLoader(
+        args.input, start_time=selected_start_time, end_time=selected_end_time
+    )
     meta = loader.metadata
+    start_time = selected_start_time or 0.0
+    end_time = selected_end_time if selected_end_time is not None else meta.duration
+    start_frame = int(start_time * meta.fps)
+    end_frame = min(math.ceil(end_time * meta.fps), meta.total_frames)
+    frames_to_process = max(end_frame - start_frame, 0)
     _emit_status(
         observer,
         "input",
-        f"Loaded video metadata ({meta.total_frames} frames @ {meta.fps:.1f} fps)",
+        f"Loaded video metadata ({frames_to_process} selected frames @ {meta.fps:.1f} fps)",
     )
 
     # ------------------------------------------------------------------
@@ -219,15 +253,15 @@ def run(
         # ------------------------------------------------------------------
         # Main frame processing loop
         # ------------------------------------------------------------------
-        logger.info("Detecting rallies… (%d frames @ %.1f fps)", meta.total_frames, meta.fps)
+        logger.info("Detecting rallies… (%d selected frames @ %.1f fps)", frames_to_process, meta.fps)
         _emit_status(observer, "frames", "Processing video frames")
-        _emit_progress(observer, "frames", 0, meta.total_frames)
-        start_time = time.time()
-        progress_interval = max(meta.total_frames // 200, 1)
+        _emit_progress(observer, "frames", 0, frames_to_process)
+        processing_start = time.time()
+        progress_interval = max(frames_to_process // 200, 1)
 
         rallies = []
         with tqdm(
-            total=meta.total_frames,
+            total=frames_to_process,
             unit="frame",
             desc="Processing",
             dynamic_ncols=True,
@@ -238,7 +272,7 @@ def run(
 
                 # Player tracking
                 player_tracker.process_frame(frame_idx, timestamp, frame)
-                frame_count_so_far = frame_idx + 1
+                frame_count_so_far = max(frame_idx - start_frame + 1, 0)
                 movement_score = player_tracker.get_combined_movement_score(
                     frame_count_so_far
                 )
@@ -262,26 +296,26 @@ def run(
                     rallies.append(completed_rally)
 
                 if (
-                    frame_count_so_far == meta.total_frames
+                    frame_count_so_far == frames_to_process
                     or frame_count_so_far % progress_interval == 0
                 ):
                     _emit_progress(
-                        observer, "frames", frame_count_so_far, meta.total_frames
+                        observer, "frames", frame_count_so_far, frames_to_process
                     )
                 pbar.update(1)
 
         # Flush any active rally
-        final_rally = rally_detector.flush(meta.duration)
+        final_rally = rally_detector.flush(min(end_time, meta.duration))
         if final_rally is not None:
             rallies.append(final_rally)
 
-        elapsed = time.time() - start_time
+        elapsed = time.time() - processing_start
         logger.info(
             "Frame processing complete: %d rallies detected in %.1fs",
             len(rallies),
             elapsed,
         )
-        _emit_progress(observer, "frames", meta.total_frames, meta.total_frames)
+        _emit_progress(observer, "frames", frames_to_process, frames_to_process)
 
         if not rallies:
             logger.warning("No rallies detected. Check that the video contains gameplay.")

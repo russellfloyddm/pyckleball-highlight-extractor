@@ -70,6 +70,8 @@ python -m pickleball_highlights.main \
 python -m pickleball_highlights.main \
   --input match.mp4 \
   --output ./highlights \
+  --start-time 60 \
+  --end-time 180 \
   --config config.yaml \
   --threshold 0.75 \
   --before 5 \
@@ -98,7 +100,8 @@ The GUI lets you:
 ```
 usage: pyckleball-highlights [-h] --input VIDEO --output DIR [--config YAML]
                               [--threshold SCORE] [--before SECONDS]
-                              [--after SECONDS] [--no-audio] [--no-pose]
+                              [--after SECONDS] [--start-time SECONDS]
+                              [--end-time SECONDS] [--no-audio] [--no-pose]
                               [--log-level {DEBUG,INFO,WARNING,ERROR}]
                               [--log-file FILE]
 
@@ -109,6 +112,8 @@ options:
   --threshold SCORE       Minimum highlight score [0–1] (default: 0.7)
   --before SECONDS        Seconds of padding before each highlight (default: 5)
   --after SECONDS         Seconds of padding after each highlight (default: 5)
+  --start-time SECONDS    Start processing from this timestamp in the input video
+  --end-time SECONDS      Stop processing at this timestamp in the input video
   --no-audio              Skip audio analysis
   --no-pose               Skip pose estimation
   --log-level             Logging verbosity (default: INFO)

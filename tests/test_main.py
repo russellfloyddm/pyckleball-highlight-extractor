@@ -32,6 +32,13 @@ class TestParseArgs:
         assert args.before == pytest.approx(3.0)
         assert args.after == pytest.approx(7.0)
 
+    def test_start_end_time_override(self):
+        args = parse_args(
+            ["-i", "v.mp4", "-o", "./out", "--start-time", "30", "--end-time", "45.5"]
+        )
+        assert args.start_time == pytest.approx(30.0)
+        assert args.end_time == pytest.approx(45.5)
+
     def test_no_audio_flag(self):
         args = parse_args(["-i", "v.mp4", "-o", "./out", "--no-audio"])
         assert args.no_audio is True
@@ -65,6 +72,8 @@ class TestParseArgs:
         assert args.no_pose is False
         assert args.config is None
         assert args.log_level == "INFO"
+        assert args.start_time is None
+        assert args.end_time is None
 
 
 class RecordingObserver:
@@ -126,6 +135,8 @@ class TestRunObserver:
             threshold=None,
             before=None,
             after=None,
+            start_time=0.0,
+            end_time=0.1,
             no_audio=True,
             no_pose=True,
             log_level="INFO",
@@ -193,7 +204,50 @@ class TestRunObserver:
         exit_code = run(args, observer=observer)
 
         assert exit_code == 0
+        mock_video_loader_cls.assert_called_once_with(
+            "match.mp4", start_time=0.0, end_time=0.1
+        )
         assert ("audio", 1, 1) in observer.progress
         assert ("frames", 3, 3) in observer.progress
         assert ("clips", 1, 1) in observer.progress
         assert observer.status[-1] == ("done", "Generated 1 highlight clip(s)")
+
+
+class TestRunTimeWindowValidation:
+    def test_negative_start_time_raises(self, tmp_path):
+        args = argparse.Namespace(
+            input="match.mp4",
+            output=str(tmp_path),
+            config=None,
+            threshold=None,
+            before=None,
+            after=None,
+            start_time=-1.0,
+            end_time=None,
+            no_audio=True,
+            no_pose=True,
+            log_level="INFO",
+            log_file=None,
+        )
+        with pytest.raises(ValueError, match="--start-time must be >= 0"):
+            run(args)
+
+    def test_end_time_before_start_time_raises(self, tmp_path):
+        args = argparse.Namespace(
+            input="match.mp4",
+            output=str(tmp_path),
+            config=None,
+            threshold=None,
+            before=None,
+            after=None,
+            start_time=30.0,
+            end_time=10.0,
+            no_audio=True,
+            no_pose=True,
+            log_level="INFO",
+            log_file=None,
+        )
+        with pytest.raises(
+            ValueError, match="--end-time must be greater than --start-time"
+        ):
+            run(args)
