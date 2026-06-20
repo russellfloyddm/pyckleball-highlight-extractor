@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import sys
 import time
@@ -216,7 +217,7 @@ def run(
     start_time = selected_start_time or 0.0
     end_time = selected_end_time if selected_end_time is not None else meta.duration
     start_frame = int(start_time * meta.fps)
-    end_frame = min(int(end_time * meta.fps), meta.total_frames)
+    end_frame = min(math.ceil(end_time * meta.fps), meta.total_frames)
     frames_to_process = max(end_frame - start_frame, 0)
     _emit_status(
         observer,

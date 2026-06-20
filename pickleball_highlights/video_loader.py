@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Generator, Optional, Tuple
@@ -88,7 +89,7 @@ class VideoLoader:
             int(self.start_time * meta.fps) if self.start_time is not None else 0
         )
         end_frame = (
-            int(self.end_time * meta.fps)
+            min(math.ceil(self.end_time * meta.fps), meta.total_frames)
             if self.end_time is not None
             else meta.total_frames
         )
