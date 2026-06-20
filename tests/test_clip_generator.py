@@ -133,6 +133,33 @@ class TestClipGenerator:
         ]
         assert len(extract_calls) == 1
 
+    @patch.object(ClipGenerator, "_extract_clip")
+    @patch("pickleball_highlights.clip_generator.subprocess.run")
+    def test_generate_reports_progress(self, mock_run, mock_extract_clip, tmp_path):
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_extract_clip.return_value = None
+        config = make_config()
+        gen = ClipGenerator(config, str(tmp_path))
+
+        progress_updates = []
+        candidates = [
+            make_candidate(10.0, 30.0, score=0.8),
+            make_candidate(40.0, 60.0, score=0.9),
+        ]
+        meta = make_meta()
+
+        gen.generate(
+            candidates,
+            "/fake/video.mp4",
+            meta,
+            threshold=0.7,
+            progress_callback=lambda current, total: progress_updates.append(
+                (current, total)
+            ),
+        )
+
+        assert progress_updates == [(0, 1), (1, 1)]
+
     def test_generate_no_ffmpeg_returns_empty(self, tmp_path):
         """If FFmpeg is missing, _extract_clip should return None gracefully."""
         import os

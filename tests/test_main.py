@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+from types import SimpleNamespace
 import pytest
 from unittest.mock import MagicMock, patch
 
-from pickleball_highlights.main import parse_args
+from pickleball_highlights.config import AppConfig
+from pickleball_highlights.main import parse_args, run
+from pickleball_highlights.rally_detector import Rally
 
 
 class TestParseArgs:
@@ -62,3 +65,135 @@ class TestParseArgs:
         assert args.no_pose is False
         assert args.config is None
         assert args.log_level == "INFO"
+
+
+class RecordingObserver:
+    def __init__(self):
+        self.status = []
+        self.progress = []
+
+    def on_status(self, stage: str, message: str) -> None:
+        self.status.append((stage, message))
+
+    def on_progress(self, stage: str, current: int, total: int) -> None:
+        self.progress.append((stage, current, total))
+
+
+class FakeTqdm:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def update(self, amount):
+        return None
+
+
+class TestRunObserver:
+    @patch("pickleball_highlights.main.HighlightCompiler")
+    @patch("pickleball_highlights.main.ClipGenerator")
+    @patch("pickleball_highlights.main.HighlightScorer")
+    @patch("pickleball_highlights.main.RallyDetector")
+    @patch("pickleball_highlights.main.PlayerTracker")
+    @patch("pickleball_highlights.main.BallTracker")
+    @patch("pickleball_highlights.main.AudioAnalyzer")
+    @patch("pickleball_highlights.main.VideoLoader")
+    @patch("pickleball_highlights.main.load_config")
+    @patch("pickleball_highlights.main.setup_logging")
+    @patch("pickleball_highlights.main.tqdm", FakeTqdm)
+    def test_run_reports_progress(
+        self,
+        mock_setup_logging,
+        mock_load_config,
+        mock_video_loader_cls,
+        mock_audio_cls,
+        mock_ball_tracker_cls,
+        mock_player_tracker_cls,
+        mock_rally_detector_cls,
+        mock_scorer_cls,
+        mock_generator_cls,
+        mock_compiler_cls,
+        tmp_path,
+    ):
+        args = argparse.Namespace(
+            input="match.mp4",
+            output=str(tmp_path),
+            config=None,
+            threshold=None,
+            before=None,
+            after=None,
+            no_audio=True,
+            no_pose=True,
+            log_level="INFO",
+            log_file=None,
+        )
+        observer = RecordingObserver()
+
+        mock_load_config.return_value = AppConfig()
+        mock_video_loader = MagicMock()
+        mock_video_loader.metadata = SimpleNamespace(
+            total_frames=3,
+            fps=30.0,
+            duration=0.1,
+        )
+        mock_video_loader.frames.return_value = iter(
+            [
+                (0, 0.0, MagicMock()),
+                (1, 0.033, MagicMock()),
+                (2, 0.066, MagicMock()),
+            ]
+        )
+        mock_video_loader_cls.return_value = mock_video_loader
+
+        mock_audio_cls.return_value = MagicMock()
+        mock_ball_tracker = MagicMock()
+        mock_ball_tracker.get_state.return_value = MagicMock()
+        mock_ball_tracker_cls.return_value = mock_ball_tracker
+
+        mock_player_tracker = MagicMock()
+        mock_player_tracker.get_combined_movement_score.return_value = 0.0
+        mock_player_tracker_cls.return_value = mock_player_tracker
+
+        rally = Rally(
+            start_time=0.0,
+            end_time=5.0,
+            shot_count=12,
+            max_ball_speed=450.0,
+            avg_ball_speed=250.0,
+            movement_score=0.4,
+        )
+        mock_rally_detector = MagicMock()
+        mock_rally_detector.update.return_value = None
+        mock_rally_detector.flush.return_value = rally
+        mock_rally_detector_cls.return_value = mock_rally_detector
+
+        candidate = SimpleNamespace(score=0.9)
+        mock_scorer = MagicMock()
+        mock_scorer.score_rallies.return_value = [candidate]
+        mock_scorer_cls.return_value = mock_scorer
+
+        mock_generator = MagicMock()
+
+        def generate_with_progress(*args, **kwargs):
+            kwargs["progress_callback"](1, 1)
+            return ["clip-1"]
+
+        mock_generator.generate.side_effect = generate_with_progress
+        mock_generator_cls.return_value = mock_generator
+
+        mock_compiler = MagicMock()
+        mock_compiler.compile.return_value = "reel.mp4"
+        mock_compiler.write_metadata.return_value = "metadata.json"
+        mock_compiler_cls.return_value = mock_compiler
+
+        exit_code = run(args, observer=observer)
+
+        assert exit_code == 0
+        assert ("audio", 1, 1) in observer.progress
+        assert ("frames", 3, 3) in observer.progress
+        assert ("clips", 1, 1) in observer.progress
+        assert observer.status[-1] == ("done", "Generated 1 highlight clip(s)")

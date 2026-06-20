@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from pickleball_highlights.config import HighlightConfig
 from pickleball_highlights.highlight_scorer import HighlightCandidate
@@ -59,6 +59,7 @@ class ClipGenerator:
         video_path: str,
         video_meta: VideoMetadata,
         threshold: float = 0.7,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> List[GeneratedClip]:
         """Generate clips for all candidates above the score threshold.
 
@@ -69,6 +70,8 @@ class ClipGenerator:
             video_path: Path to the source video file.
             video_meta: Video metadata (used for duration clamping).
             threshold: Minimum score required to generate a clip.
+            progress_callback: Optional callback receiving (completed, total)
+                               clip counts as extraction progresses.
 
         Returns:
             List of GeneratedClip objects for successfully extracted clips.
@@ -83,6 +86,8 @@ class ClipGenerator:
             len(candidates),
             threshold,
         )
+        if progress_callback is not None:
+            progress_callback(0, len(merged))
 
         clips: List[GeneratedClip] = []
         for idx, candidate in enumerate(merged, start=1):
@@ -101,6 +106,8 @@ class ClipGenerator:
             )
             if clip is not None:
                 clips.append(clip)
+            if progress_callback is not None:
+                progress_callback(idx, len(merged))
 
         return clips
 
