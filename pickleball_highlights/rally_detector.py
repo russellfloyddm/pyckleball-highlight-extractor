@@ -189,10 +189,10 @@ class RallyDetector:
 
                 # Shot detection: significant speed peak (proxy for paddle contact)
                 if len(self._ball_speeds) >= 3:
-                    baseline_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
+                    prev_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
                     audio_ok = self._audio_supports_shot(timestamp)
                     if (
-                        peak_speed > baseline_speed * 1.5
+                        peak_speed > prev_speed * 1.5
                         and peak_speed > 50
                         and audio_ok
                     ):
