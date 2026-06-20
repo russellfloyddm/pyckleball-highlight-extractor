@@ -83,6 +83,9 @@ python -m pickleball_highlights.main \
 python -m pickleball_highlights.gui
 ```
 
+If your Python installation does not include Tkinter, install the platform package
+first (for example `python3-tk` on Ubuntu / Debian).
+
 The GUI lets you:
 
 - choose the input video, output directory, and optional config file
