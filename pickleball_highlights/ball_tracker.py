@@ -203,7 +203,7 @@ class BallTracker:
 
         # From all contours, keep only those that are compact (ball-like).
         # A ball is small and near-round; player bodies are large and irregular.
-        # We reject tiny noise blobs (<100 px²) and elongated streaks (aspect
+        # We reject tiny noise blobs (<40 px²) and elongated streaks (aspect
         # ratio >2.0), then pick the *smallest* surviving contour — which is
         # much more likely to be the ball than the largest (player body).
         ball_candidates = []

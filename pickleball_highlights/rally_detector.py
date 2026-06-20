@@ -270,6 +270,8 @@ class RallyDetector:
         for frame in frames:
             if frame.start_time <= timestamp < frame.end_time:
                 return bool(frame.is_spike)
+        # Audio windows can miss frame timestamps at boundaries; do not block
+        # visual shot evidence when audio is unavailable for this instant.
         return True
 
     def _end_rally(self, timestamp: float) -> Optional[Rally]:
