@@ -13,6 +13,9 @@ from pickleball_highlights.utils import get_logger
 
 logger = get_logger(__name__)
 
+MIN_BALL_CONTOUR_AREA = 40.0
+MAX_BALL_ASPECT_RATIO = 2.0
+
 
 @dataclass
 class BallDetection:
@@ -109,7 +112,11 @@ class BallTracker:
         best = self._best_detection(results, frame_idx, timestamp)
         if best is not None:
             self._state.add(best)
-        return best
+            return best
+
+        # If YOLO is loaded but misses the ball in this frame, fall back to
+        # motion-based detection so rally detection can continue.
+        return self._optical_flow_fallback(frame_idx, timestamp, frame)
 
     def get_state(self) -> BallTrackState:
         """Return the current accumulated tracking state."""
@@ -197,25 +204,36 @@ class BallTracker:
         if not contours:
             return None
 
-        # Pick the largest contour as a proxy for the ball/most-moving object
-        largest = max(contours, key=cv2.contourArea)
-        area = cv2.contourArea(largest)
-        # Reject tiny motion blobs (sensor noise/compression artifacts); 100 px
-        # keeps substantial moving regions while filtering 10-50 px speckles.
-        if area < 100:
+        # From all contours, keep only those that are compact (ball-like).
+        # A ball is small and near-round; player bodies are large and irregular.
+        # We reject tiny noise blobs (<40 px²; MIN_BALL_CONTOUR_AREA) and elongated
+        # streaks (aspect ratio >2.0; MAX_BALL_ASPECT_RATIO), then pick the
+        # *smallest* surviving contour — which is much more likely to be the
+        # ball than the largest (player body). This keeps small/blurred
+        # pickleball motion while filtering single-block compression artifacts
+        # that commonly appear in broadcast video.
+        ball_candidates = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < MIN_BALL_CONTOUR_AREA:
+                continue
+            x, y, w, h = cv2.boundingRect(cnt)
+            min_side = min(w, h)
+            if min_side <= 0:
+                continue
+            if max(w, h) / min_side > MAX_BALL_ASPECT_RATIO:
+                continue
+            ball_candidates.append(cnt)
+
+        if not ball_candidates:
             return None
 
-        x, y, w, h = cv2.boundingRect(largest)
-        min_side = min(w, h)
-        if min_side <= 0:
-            return None
-        # A ball-like region should be near-round; >2.0 tends to indicate streaks
-        # and edge artifacts from camera motion rather than a tracked ball.
-        aspect_ratio = max(w, h) / min_side
-        if aspect_ratio > 2.0:
-            return None
+        # Prefer the smallest compact contour — players produce large motion
+        # blobs while the ball produces a small one.
+        best = min(ball_candidates, key=cv2.contourArea)
+        area = cv2.contourArea(best)
 
-        m = cv2.moments(largest)
+        m = cv2.moments(best)
         if m["m00"] == 0:
             return None
         cx = m["m10"] / m["m00"]

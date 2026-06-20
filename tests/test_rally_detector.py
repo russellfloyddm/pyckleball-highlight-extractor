@@ -310,21 +310,38 @@ class TestRallyDetector:
         detector.update(0.0, make_ball_det(0, 0.0), state, movement_score=0.3)
         state.speeds = [40.0]
         detector.update(0.1, make_ball_det(1, 0.1), state, movement_score=0.3)
-        state.speeds = [100.0]
+        state.speeds = [70.0]
         detector.update(0.2, make_ball_det(2, 0.2), state, movement_score=0.3)
         state.speeds = [60.0]
         detector.update(0.3, make_ball_det(3, 0.3), state, movement_score=0.3)
 
-        # Peak is present but audio did not spike.
+        # Visual peak is present but not strong enough to pass without audio support.
         assert detector._active_rally_shots == 0
 
         detector.set_audio_analyzer(
             DummyAudioAnalyzer([DummyAudioFrame(0.0, 10.0, is_spike=True)])
         )
-        state.speeds = [120.0]
+        state.speeds = [90.0]
         detector.update(0.4, make_ball_det(4, 0.4), state, movement_score=0.3)
         state.speeds = [70.0]
         detector.update(0.5, make_ball_det(5, 0.5), state, movement_score=0.3)
+        assert detector._active_rally_shots >= 1
+
+    def test_strong_visual_peak_counts_without_audio_spike(self):
+        detector = self._make_detector(min_shots=0)
+        detector.set_audio_analyzer(
+            DummyAudioAnalyzer([DummyAudioFrame(0.0, 10.0, is_spike=False)])
+        )
+        state = BallTrackState()
+
+        detector.update(0.0, make_ball_det(0, 0.0), state, movement_score=0.3)
+        state.speeds = [35.0]
+        detector.update(0.1, make_ball_det(1, 0.1), state, movement_score=0.3)
+        state.speeds = [95.0]
+        detector.update(0.2, make_ball_det(2, 0.2), state, movement_score=0.3)
+        state.speeds = [55.0]
+        detector.update(0.3, make_ball_det(3, 0.3), state, movement_score=0.3)
+
         assert detector._active_rally_shots >= 1
 
     def test_reset_clears_state(self):

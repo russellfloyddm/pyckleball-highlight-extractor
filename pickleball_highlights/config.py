@@ -38,7 +38,7 @@ class DetectionConfig:
     """Object detection and tracking configuration."""
 
     yolo_model: str = "yolov8n.pt"
-    yolo_confidence: float = 0.3
+    yolo_confidence: float = 0.2
     yolo_iou: float = 0.5
     tracker: str = "bytetrack"
     ball_class_id: int = 32  # COCO sports ball
@@ -63,14 +63,21 @@ class RallyConfig:
 
     min_rally_duration: float = 3.0  # seconds
     max_gap_duration: float = 3.0  # seconds to allow between shots
-    min_shots: int = 3
-    min_detection_streak: int = 3
+    min_shots: int = 1
+    min_detection_streak: int = 2
     detection_window: int = 5
-    min_movement_to_start: float = 0.05
-    min_ball_speed: float = 20.0  # pixels/second
+    min_movement_to_start: float = 0.0
+    # Lower floor to keep distant-camera rallies alive; 8 px/s is intended to
+    # retain low apparent motion near the single-digit range in downscaled or
+    # low-FPS footage. Trade-off: this can be more sensitive to slow camera
+    # shake or non-ball motion (increase this value if you observe false
+    # positives on static/noisy footage).
+    min_ball_speed: float = 8.0  # pixels/second
     service_anchor_window: float = 1.0  # seconds
     service_anchor_position_std: float = 8.0  # pixels
-    service_anchor_min_speed_spike: float = 80.0  # pixels/second
+    # Serve anchoring uses a moderate spike so low-FPS/mobile footage still
+    # marks serve starts without requiring very high per-frame speed jumps.
+    service_anchor_min_speed_spike: float = 40.0  # pixels/second
     long_rally_bonus_shots: Dict[int, float] = field(
         default_factory=lambda: {10: 0.1, 20: 0.2, 30: 0.35}
     )
@@ -80,7 +87,7 @@ class RallyConfig:
 class HighlightConfig:
     """Highlight selection and clip configuration."""
 
-    score_threshold: float = 0.7
+    score_threshold: float = 0.4
     merge_gap: float = 10.0  # seconds - merge highlights within this gap
     clip_before: float = 5.0  # seconds before highlight
     clip_after: float = 5.0  # seconds after highlight

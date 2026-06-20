@@ -191,10 +191,22 @@ class RallyDetector:
                 if len(self._ball_speeds) >= 3:
                     prev_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
                     audio_ok = self._audio_supports_shot(timestamp)
-                    if (
-                        peak_speed > prev_speed * 1.5
-                        and peak_speed > 50
-                        and audio_ok
+                    # Require a minimum absolute speed floor (20 px/s) to
+                    # reject jitter/camera wobble even when config thresholds
+                    # are tuned low for distant-camera footage.
+                    # Shot peaks must clearly exceed the baseline in-play
+                    # threshold (2x), with a minimum floor of 20 px/s and a
+                    # higher floor when 2x configured min_ball_speed exceeds 20.
+                    min_peak_speed = max(self.config.min_ball_speed * 2.0, 20.0)
+                    visually_strong_peak = (
+                        # 1.35x captures realistic shot acceleration in noisy
+                        # tracks where per-frame speed is damped by blur.
+                        peak_speed > prev_speed * 1.35 and peak_speed > min_peak_speed
+                    )
+                    if visually_strong_peak and (
+                        # If audio does not corroborate, require a much larger
+                        # 2.2x jump before counting a visual-only shot.
+                        audio_ok or peak_speed > prev_speed * 2.2
                     ):
                         self._active_rally_shots += 1
                         self._shot_times.append(timestamp)
@@ -262,10 +274,17 @@ class RallyDetector:
             logger.debug("Audio corroboration unavailable at %.2fs: %s", timestamp, exc)
             return True
 
+        # Be permissive when audio extraction/analysis produced no usable
+        # windows: treat audio as unavailable rather than blocking visual shots.
+        if not frames:
+            return True
+
         for frame in frames:
             if frame.start_time <= timestamp < frame.end_time:
                 return bool(frame.is_spike)
-        return False
+        # Audio windows can miss frame timestamps at boundaries; do not block
+        # visual shot evidence when audio is unavailable for this instant.
+        return True
 
     def _end_rally(self, timestamp: float) -> Optional[Rally]:
         start = self._active_rally_start
