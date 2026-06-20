@@ -1,0 +1,52 @@
+# Pyckleball Highlight Extractor - Sample Configuration
+# Copy this file and edit as needed, then pass via --config flag.
+
+log_level: INFO
+max_workers: 2
+batch_size: 32
+
+scoring:
+  rally_duration: 0.35
+  shot_count: 0.25
+  ball_speed: 0.15
+  movement: 0.15
+  audio: 0.10
+
+detection:
+  yolo_model: yolov8n.pt       # yolov8n.pt (fast) / yolov8s.pt / yolov8m.pt
+  yolo_confidence: 0.3
+  yolo_iou: 0.5
+  tracker: bytetrack
+  ball_class_id: 32            # COCO sports-ball class
+  player_class_id: 0           # COCO person class
+  device: auto                 # auto / cpu / cuda / mps
+
+audio:
+  sample_rate: 22050
+  hop_length: 512
+  frame_duration: 1.0          # seconds per audio analysis window
+  excitement_threshold: 0.6
+  min_spike_duration: 0.5
+
+rally:
+  min_rally_duration: 2.0      # seconds
+  max_gap_duration: 3.0        # max gap (seconds) before rally ends
+  min_shots: 2
+  long_rally_bonus_shots:
+    10: 0.10
+    20: 0.20
+    30: 0.35
+
+highlight:
+  score_threshold: 0.7
+  merge_gap: 10.0              # merge highlights within this many seconds
+  clip_before: 5.0             # seconds of padding before highlight
+  clip_after: 5.0              # seconds of padding after highlight
+  output_format: mp4
+  ffmpeg_crf: 23
+  ffmpeg_preset: medium
+  add_transitions: true
+  transition_duration: 0.5
+  title_screen: false
+  title_text: "Pickleball Highlights"
+  title_duration: 3.0
