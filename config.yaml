@@ -31,14 +31,14 @@ audio:
 rally:
   min_rally_duration: 3.0      # seconds
   max_gap_duration: 3.0        # max gap (seconds) before rally ends
-  min_shots: 3
+  min_shots: 1
   min_detection_streak: 2      # detections required before rally starts
   detection_window: 5          # evaluate start over last N frames
-  min_movement_to_start: 0.05  # require player movement to open rally
-  min_ball_speed: 20.0         # px/s floor for in-play ball updates
+  min_movement_to_start: 0.0   # allow rally start even with low movement estimate
+  min_ball_speed: 8.0          # px/s floor for in-play ball updates
   service_anchor_window: 1.0   # seconds to inspect for pre-serve still ball
   service_anchor_position_std: 8.0   # px std-dev threshold for still ball
-  service_anchor_min_speed_spike: 80.0  # px/s needed to anchor serve start
+  service_anchor_min_speed_spike: 40.0  # px/s needed to anchor serve start
   long_rally_bonus_shots:
     10: 0.10
     20: 0.20

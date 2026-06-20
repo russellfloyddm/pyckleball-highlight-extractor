@@ -55,7 +55,7 @@ class TestAppConfig:
 
     def test_default_threshold(self):
         cfg = AppConfig()
-        assert cfg.highlight.score_threshold == 0.7
+        assert cfg.highlight.score_threshold == 0.4
 
     def test_default_clip_padding(self):
         cfg = AppConfig()
@@ -69,11 +69,11 @@ class TestAppConfig:
     def test_default_rally_filters(self):
         cfg = AppConfig()
         assert cfg.rally.min_rally_duration == 3.0
-        assert cfg.rally.min_shots == 3
-        assert cfg.rally.min_detection_streak == 3
+        assert cfg.rally.min_shots == 1
+        assert cfg.rally.min_detection_streak == 2
         assert cfg.rally.detection_window == 5
-        assert cfg.rally.min_movement_to_start == 0.05
-        assert cfg.rally.min_ball_speed == 20.0
+        assert cfg.rally.min_movement_to_start == 0.0
+        assert cfg.rally.min_ball_speed == 8.0
 
 
 class TestLoadConfig:
