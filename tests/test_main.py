@@ -135,8 +135,8 @@ class TestRunObserver:
             threshold=None,
             before=None,
             after=None,
-            start_time=12.0,
-            end_time=20.0,
+            start_time=0.0,
+            end_time=0.1,
             no_audio=True,
             no_pose=True,
             log_level="INFO",
@@ -205,7 +205,7 @@ class TestRunObserver:
 
         assert exit_code == 0
         mock_video_loader_cls.assert_called_once_with(
-            "match.mp4", start_time=12.0, end_time=20.0
+            "match.mp4", start_time=0.0, end_time=0.1
         )
         assert ("audio", 1, 1) in observer.progress
         assert ("frames", 3, 3) in observer.progress
