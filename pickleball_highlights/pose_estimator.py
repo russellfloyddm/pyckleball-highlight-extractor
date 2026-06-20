@@ -127,20 +127,29 @@ class PoseEstimator:
     def _load_model_tasks(self, mp) -> None:  # type: ignore[no-untyped-def]
         """Load MediaPipe Pose using the new Tasks API (mediapipe >= 0.10.30)."""
         import os
-        import tempfile
+        import urllib.error
         import urllib.request
 
         model_url = (
             "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
             "pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
         )
-        model_dir = os.path.join(tempfile.gettempdir(), "mediapipe_models")
+        model_dir = os.path.join(
+            os.path.expanduser("~"), ".cache", "mediapipe_models"
+        )
         os.makedirs(model_dir, exist_ok=True)
         model_path = os.path.join(model_dir, "pose_landmarker_lite.task")
 
         if not os.path.exists(model_path):
             logger.info("Downloading MediaPipe Pose model (lite)…")
-            urllib.request.urlretrieve(model_url, model_path)
+            try:
+                urllib.request.urlretrieve(model_url, model_path)
+            except urllib.error.URLError as exc:
+                raise RuntimeError(
+                    f"Failed to download MediaPipe Pose model from {model_url}: {exc}. "
+                    "Check your network connection or manually place the model at "
+                    f"{model_path}."
+                ) from exc
 
         BaseOptions = mp.tasks.BaseOptions
         PoseLandmarker = mp.tasks.vision.PoseLandmarker
