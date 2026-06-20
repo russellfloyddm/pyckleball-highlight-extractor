@@ -77,6 +77,22 @@ python -m pickleball_highlights.main \
   --log-level INFO
 ```
 
+### Desktop GUI
+
+```bash
+python -m pickleball_highlights.gui
+```
+
+If your Python installation does not include Tkinter, install the platform package
+first (for example `python3-tk` on Ubuntu / Debian).
+
+The GUI lets you:
+
+- choose the input video, output directory, and optional config file
+- override threshold and clip padding without using CLI flags
+- watch the current pipeline stage while the job is running
+- follow live logs plus progress for frame processing and clip generation
+
 ### All Options
 
 ```
