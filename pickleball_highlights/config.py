@@ -69,7 +69,8 @@ class RallyConfig:
     min_movement_to_start: float = 0.0
     # Lower floor to keep distant-camera rallies alive; very small ball motion
     # can project to single-digit px/s between frames. Trade-off: this can be
-    # more sensitive to slow camera shake or non-ball motion.
+    # more sensitive to slow camera shake or non-ball motion (increase this
+    # value if you observe false positives on static/noisy footage).
     min_ball_speed: float = 8.0  # pixels/second
     service_anchor_window: float = 1.0  # seconds
     service_anchor_position_std: float = 8.0  # pixels
