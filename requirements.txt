@@ -1,0 +1,23 @@
+# Core dependencies
+numpy>=1.24.0
+opencv-python>=4.8.0
+PyYAML>=6.0
+tqdm>=4.65.0
+
+# Audio analysis
+librosa>=0.10.0
+pydub>=0.25.1
+
+# Object detection and tracking (YOLOv8)
+ultralytics>=8.0.0
+
+# Pose estimation
+mediapipe>=0.10.0
+
+# Optional: GPU acceleration
+# torch>=2.0.0
+# torchvision>=0.15.0
+
+# Development / testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
