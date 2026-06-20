@@ -121,7 +121,12 @@ class RallyDetector:
         else:
             # Ball not visible
             if self._active_rally_start is not None:
-                gap = timestamp - (self._last_ball_time or timestamp)
+                last_ball_time = (
+                    self._last_ball_time
+                    if self._last_ball_time is not None
+                    else timestamp
+                )
+                gap = timestamp - last_ball_time
                 if gap > self.config.max_gap_duration:
                     return self._end_rally(timestamp)
         return None
@@ -236,7 +241,7 @@ class RallyDetector:
         recent_points = [
             (x, y)
             for t, x, y in self._pre_rally_positions
-            if lower <= t < timestamp
+            if lower <= t <= timestamp
         ]
         if len(recent_points) < 3:
             return False

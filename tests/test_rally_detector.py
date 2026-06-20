@@ -274,7 +274,7 @@ class TestRallyDetector:
                 min_rally_duration=1.0,
                 max_gap_duration=1.0,
                 min_shots=0,
-                min_detection_streak=1,
+                min_detection_streak=3,
                 detection_window=3,
                 min_movement_to_start=0.0,
                 min_ball_speed=0.0,
