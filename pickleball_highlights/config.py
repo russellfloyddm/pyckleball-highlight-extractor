@@ -61,9 +61,16 @@ class AudioConfig:
 class RallyConfig:
     """Rally detection configuration."""
 
-    min_rally_duration: float = 2.0  # seconds
+    min_rally_duration: float = 3.0  # seconds
     max_gap_duration: float = 3.0  # seconds to allow between shots
-    min_shots: int = 2
+    min_shots: int = 3
+    min_detection_streak: int = 3
+    detection_window: int = 5
+    min_movement_to_start: float = 0.05
+    min_ball_speed: float = 20.0  # pixels/second
+    service_anchor_window: float = 1.0  # seconds
+    service_anchor_position_std: float = 8.0  # pixels
+    service_anchor_min_speed_spike: float = 80.0  # pixels/second
     long_rally_bonus_shots: Dict[int, float] = field(
         default_factory=lambda: {10: 0.1, 20: 0.2, 30: 0.35}
     )

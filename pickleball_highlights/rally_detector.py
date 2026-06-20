@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, Deque, List, Optional, Tuple
 
 import numpy as np
 
@@ -70,6 +71,15 @@ class RallyDetector:
         self._ball_speeds: List[float] = []
         self._completed_rallies: List[Rally] = []
         self._movement_score: float = 0.0
+        self._recent_detections: Deque[bool] = deque(
+            maxlen=max(self.config.detection_window, 1)
+        )
+        self._pre_rally_positions: Deque[Tuple[float, float, float]] = deque()
+        self._audio_analyzer: Optional[Any] = None
+
+    def set_audio_analyzer(self, audio_analyzer: Optional[Any]) -> None:
+        """Attach an optional audio analyzer for shot corroboration."""
+        self._audio_analyzer = audio_analyzer
 
     # ------------------------------------------------------------------
     # Public API
@@ -93,15 +103,30 @@ class RallyDetector:
         Returns:
             A Rally object if a rally just ended, otherwise None.
         """
+        self._recent_detections.append(ball_det is not None)
+
         if ball_det is not None:
+            self._record_pre_rally_position(timestamp, ball_det.x, ball_det.y)
+
+            latest_speed = ball_state.speeds[-1] if ball_state.speeds else 0.0
+
             # Ball visible – potentially in a rally
-            if self._active_rally_start is None:
+            if self._active_rally_start is None and self._should_start_rally(
+                timestamp, latest_speed, movement_score
+            ):
                 self._start_rally(timestamp)
-            self._update_rally(timestamp, ball_state, movement_score)
+
+            if self._active_rally_start is not None:
+                self._update_rally(timestamp, ball_state, movement_score)
         else:
             # Ball not visible
             if self._active_rally_start is not None:
-                gap = timestamp - (self._last_ball_time or timestamp)
+                last_ball_time = (
+                    self._last_ball_time
+                    if self._last_ball_time is not None
+                    else timestamp
+                )
+                gap = timestamp - last_ball_time
                 if gap > self.config.max_gap_duration:
                     return self._end_rally(timestamp)
         return None
@@ -132,6 +157,8 @@ class RallyDetector:
         self._ball_speeds.clear()
         self._completed_rallies.clear()
         self._movement_score = 0.0
+        self._recent_detections.clear()
+        self._pre_rally_positions.clear()
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -143,6 +170,8 @@ class RallyDetector:
         self._shot_times.clear()
         self._ball_speeds.clear()
         self._movement_score = 0.0
+        self._last_ball_time = timestamp
+        self._pre_rally_positions.clear()
         logger.debug("Rally started at %.2fs", timestamp)
 
     def _update_rally(
@@ -154,21 +183,89 @@ class RallyDetector:
         """Count shots using direction-reversal heuristic."""
         if ball_state.speeds:
             latest_speed = ball_state.speeds[-1]
-            self._ball_speeds.append(latest_speed)
+            if latest_speed >= self.config.min_ball_speed:
+                self._ball_speeds.append(latest_speed)
+                self._last_ball_time = timestamp
 
-            # Shot detection: significant speed peak (proxy for paddle contact)
-            if len(self._ball_speeds) >= 3:
-                prev, curr, _ = self._ball_speeds[-3], self._ball_speeds[-2], self._ball_speeds[-1]
-                if curr > prev * 1.5 and curr > 50:
-                    self._active_rally_shots += 1
-                    self._shot_times.append(timestamp)
+                # Shot detection: significant speed peak (proxy for paddle contact)
+                if len(self._ball_speeds) >= 3:
+                    prev_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
+                    audio_ok = self._audio_supports_shot(timestamp)
+                    if (
+                        peak_speed > prev_speed * 1.5
+                        and peak_speed > 50
+                        and audio_ok
+                    ):
+                        self._active_rally_shots += 1
+                        self._shot_times.append(timestamp)
 
-        self._last_ball_time = timestamp
+            elif self._last_ball_time is None:
+                # Keep very early low-speed detections from ending the rally immediately.
+                self._last_ball_time = timestamp
+
+        elif self._last_ball_time is None:
+            self._last_ball_time = timestamp
+
         # Maintain a running weighted average of movement
         alpha = 0.1
         self._movement_score = (
             alpha * movement_score + (1 - alpha) * self._movement_score
         )
+
+    def _should_start_rally(
+        self, timestamp: float, latest_speed: float, movement_score: float
+    ) -> bool:
+        if movement_score < self.config.min_movement_to_start:
+            return False
+
+        detection_hits = sum(self._recent_detections)
+        if detection_hits < self.config.min_detection_streak:
+            return False
+
+        if self._was_recently_stationary(timestamp):
+            return latest_speed >= self.config.service_anchor_min_speed_spike
+
+        return True
+
+    def _record_pre_rally_position(self, timestamp: float, x: float, y: float) -> None:
+        self._pre_rally_positions.append((timestamp, x, y))
+        earliest = timestamp - self.config.service_anchor_window
+        while self._pre_rally_positions and self._pre_rally_positions[0][0] < earliest:
+            self._pre_rally_positions.popleft()
+
+    def _was_recently_stationary(self, timestamp: float) -> bool:
+        if self.config.service_anchor_window <= 0:
+            return False
+
+        lower = timestamp - self.config.service_anchor_window
+        recent_points = [
+            (x, y)
+            for t, x, y in self._pre_rally_positions
+            if lower <= t <= timestamp
+        ]
+        if len(recent_points) < 3:
+            return False
+
+        arr = np.array(recent_points, dtype=np.float32)
+        center = np.mean(arr, axis=0)
+        radial_distances = np.linalg.norm(arr - center, axis=1)
+        radial_std = float(np.std(radial_distances))
+        return radial_std <= self.config.service_anchor_position_std
+
+    def _audio_supports_shot(self, timestamp: float) -> bool:
+        if self._audio_analyzer is None:
+            return True
+
+        try:
+            frames = self._audio_analyzer.get_frames()
+        except Exception as exc:
+            logger.debug("Audio corroboration unavailable at %.2fs: %s", timestamp, exc)
+            return True
+
+        for frame in frames:
+            if frame.start_time <= timestamp < frame.end_time:
+                return bool(frame.is_spike)
+        return False
 
     def _end_rally(self, timestamp: float) -> Optional[Rally]:
         start = self._active_rally_start
