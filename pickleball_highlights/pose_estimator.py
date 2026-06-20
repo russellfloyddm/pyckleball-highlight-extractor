@@ -58,6 +58,7 @@ class PoseEstimator:
     def __init__(self, device: str = "cpu") -> None:
         self.device = device
         self._pose = None
+        self._mp_api: str = "none"  # "legacy", "tasks", or "none"
         self._load_model()
 
     # ------------------------------------------------------------------
@@ -77,8 +78,10 @@ class PoseEstimator:
         Returns:
             PoseResult or None if no person is found.
         """
-        if self._pose is not None:
-            return self._mediapipe_process(frame_idx, timestamp, frame)
+        if self._mp_api == "legacy":
+            return self._mediapipe_process_legacy(frame_idx, timestamp, frame)
+        if self._mp_api == "tasks":
+            return self._mediapipe_process_tasks(frame_idx, timestamp, frame)
         return self._heuristic_fallback(frame_idx, timestamp, frame)
 
     def close(self) -> None:
@@ -98,14 +101,20 @@ class PoseEstimator:
         try:
             import mediapipe as mp  # type: ignore
 
-            self._pose = mp.solutions.pose.Pose(
-                static_image_mode=False,
-                model_complexity=1,
-                smooth_landmarks=True,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5,
-            )
-            logger.info("MediaPipe Pose loaded successfully.")
+            if hasattr(mp, "solutions"):
+                # Legacy API (mediapipe < ~0.10.30)
+                self._pose = mp.solutions.pose.Pose(
+                    static_image_mode=False,
+                    model_complexity=1,
+                    smooth_landmarks=True,
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                )
+                self._mp_api = "legacy"
+                logger.info("MediaPipe Pose loaded successfully (legacy API).")
+            else:
+                # New Tasks API (mediapipe >= 0.10.30)
+                self._load_model_tasks(mp)
         except ImportError:
             logger.warning(
                 "mediapipe not installed – pose estimation will use heuristic fallback."
@@ -115,7 +124,50 @@ class PoseEstimator:
             logger.warning("Failed to load MediaPipe Pose: %s", exc)
             self._pose = None
 
-    def _mediapipe_process(
+    def _load_model_tasks(self, mp) -> None:  # type: ignore[no-untyped-def]
+        """Load MediaPipe Pose using the new Tasks API (mediapipe >= 0.10.30)."""
+        import os
+        import urllib.error
+        import urllib.request
+
+        model_url = (
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
+            "pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
+        )
+        model_dir = os.path.join(
+            os.path.expanduser("~"), ".cache", "mediapipe_models"
+        )
+        os.makedirs(model_dir, exist_ok=True)
+        model_path = os.path.join(model_dir, "pose_landmarker_lite.task")
+
+        if not os.path.exists(model_path):
+            logger.info("Downloading MediaPipe Pose model (lite)…")
+            try:
+                urllib.request.urlretrieve(model_url, model_path)
+            except urllib.error.URLError as exc:
+                raise RuntimeError(
+                    f"Failed to download MediaPipe Pose model from {model_url}: {exc}. "
+                    "Check your network connection or manually place the model at "
+                    f"{model_path}."
+                ) from exc
+
+        BaseOptions = mp.tasks.BaseOptions
+        PoseLandmarker = mp.tasks.vision.PoseLandmarker
+        PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+        RunningMode = mp.tasks.vision.RunningMode
+
+        options = PoseLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=model_path),
+            running_mode=RunningMode.VIDEO,
+            min_pose_detection_confidence=0.5,
+            min_pose_presence_confidence=0.5,
+            min_tracking_confidence=0.5,
+        )
+        self._pose = PoseLandmarker.create_from_options(options)
+        self._mp_api = "tasks"
+        logger.info("MediaPipe Pose loaded successfully (Tasks API).")
+
+    def _mediapipe_process_legacy(
         self, frame_idx: int, timestamp: float, frame: np.ndarray
     ) -> Optional[PoseResult]:
         import cv2
@@ -126,6 +178,37 @@ class PoseEstimator:
             return None
 
         landmarks = results.pose_landmarks.landmark
+        h, w = frame.shape[:2]
+        kps = np.array(
+            [[lm.x * w, lm.y * h, lm.visibility] for lm in landmarks],
+            dtype=np.float32,
+        )
+
+        event = self._classify_pose(kps, h, w)
+        conf = float(np.mean(kps[:, 2]))
+        return PoseResult(
+            frame_idx=frame_idx,
+            timestamp=timestamp,
+            event=event,
+            confidence=conf,
+            keypoints=kps,
+        )
+
+    def _mediapipe_process_tasks(
+        self, frame_idx: int, timestamp: float, frame: np.ndarray
+    ) -> Optional[PoseResult]:
+        import cv2
+        import mediapipe as mp  # type: ignore
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        timestamp_ms = int(timestamp * 1000)
+        results = self._pose.detect_for_video(mp_image, timestamp_ms)
+
+        if not results.pose_landmarks or not results.pose_landmarks[0]:
+            return None
+
+        landmarks = results.pose_landmarks[0]
         h, w = frame.shape[:2]
         kps = np.array(
             [[lm.x * w, lm.y * h, lm.visibility] for lm in landmarks],
