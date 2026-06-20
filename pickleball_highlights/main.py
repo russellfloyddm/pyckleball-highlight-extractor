@@ -44,8 +44,8 @@ def _emit_status(
         return
     try:
         observer.on_status(stage, message)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Observer status callback failed: %s", exc)
 
 
 def _emit_progress(
@@ -56,8 +56,8 @@ def _emit_progress(
         return
     try:
         observer.on_progress(stage, current, total)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Observer progress callback failed: %s", exc)
 
 
 def parse_args(argv: Optional[list] = None) -> argparse.Namespace:

@@ -90,7 +90,7 @@ class FakeTqdm:
         return False
 
     def update(self, amount):
-        return None
+        pass
 
 
 class TestRunObserver:

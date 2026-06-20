@@ -331,7 +331,7 @@ if tk is not None:
                 self.progress_var.set(0.0)
                 self.progress_text_var.set(f"{label}: waiting for work")
                 return
-            percent = (current / total) * 100 if total else 0.0
+            percent = (current / total) * 100
             self.progress_var.set(max(0.0, min(100.0, percent)))
             self.progress_text_var.set(f"{label}: {current}/{total}")
 
