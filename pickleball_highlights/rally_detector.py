@@ -195,7 +195,8 @@ class RallyDetector:
                     # reject jitter/camera wobble even when config thresholds
                     # are tuned low for distant-camera footage.
                     # Shot peaks must clearly exceed the baseline in-play
-                    # threshold (2x), but never below the 20 px/s absolute floor.
+                    # threshold (2x), with a minimum floor of 20 px/s and a
+                    # higher floor when 2x configured min_ball_speed exceeds 20.
                     min_peak_speed = max(self.config.min_ball_speed * 2.0, 20.0)
                     visually_strong_peak = (
                         # 1.35x captures realistic shot acceleration in noisy
