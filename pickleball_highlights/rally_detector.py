@@ -191,11 +191,18 @@ class RallyDetector:
                 if len(self._ball_speeds) >= 3:
                     prev_speed, peak_speed = self._ball_speeds[-3], self._ball_speeds[-2]
                     audio_ok = self._audio_supports_shot(timestamp)
+                    # Require a minimum absolute speed floor (20 px/s) to
+                    # reject jitter/camera wobble even when config thresholds
+                    # are tuned low for distant-camera footage.
                     min_peak_speed = max(self.config.min_ball_speed * 2.0, 20.0)
                     visually_strong_peak = (
+                        # 1.35x captures realistic shot acceleration in noisy
+                        # tracks where per-frame speed is damped by blur.
                         peak_speed > prev_speed * 1.35 and peak_speed > min_peak_speed
                     )
                     if visually_strong_peak and (
+                        # If audio does not corroborate, require a much larger
+                        # 2.2x jump before counting a visual-only shot.
                         audio_ok or peak_speed > prev_speed * 2.2
                     ):
                         self._active_rally_shots += 1

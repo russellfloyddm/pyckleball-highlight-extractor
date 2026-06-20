@@ -67,9 +67,13 @@ class RallyConfig:
     min_detection_streak: int = 2
     detection_window: int = 5
     min_movement_to_start: float = 0.0
+    # Lower floor to keep distant-camera rallies alive; very small ball motion
+    # can project to single-digit px/s between frames.
     min_ball_speed: float = 8.0  # pixels/second
     service_anchor_window: float = 1.0  # seconds
     service_anchor_position_std: float = 8.0  # pixels
+    # Serve anchoring uses a moderate spike so low-FPS/mobile footage still
+    # marks serve starts without requiring very high per-frame speed jumps.
     service_anchor_min_speed_spike: float = 40.0  # pixels/second
     long_rally_bonus_shots: Dict[int, float] = field(
         default_factory=lambda: {10: 0.1, 20: 0.2, 30: 0.35}
